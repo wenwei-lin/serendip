@@ -53,10 +53,10 @@ export default function ActivityDetail({ activity, onClose, showTasks = false })
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 50, opacity: 0 }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="w-full max-w-md max-h-[80vh]"
+        className="w-full max-w-md h-[75vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <Card className="overflow-hidden bg-white shadow-2xl rounded-xl">
+        <Card className="h-full flex flex-col bg-white shadow-2xl rounded-xl">
           <div className="relative">
             <Button
               variant="ghost"
@@ -78,7 +78,7 @@ export default function ActivityDetail({ activity, onClose, showTasks = false })
             </div>
           </div>
 
-          <div className="p-4 overflow-auto max-h-[calc(80vh-12rem)]">
+          <div className="p-4 overflow-y-auto flex-1">
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="flex items-center text-slate-600">
                 <MapPin className="w-4 h-4 mr-2 text-rose-500" />
