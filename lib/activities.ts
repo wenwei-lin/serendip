@@ -1,136 +1,98 @@
-'use server'
-import { Activity, ActivityStatus } from "@/types"
-
-// Mock data
-const mockActivities: Activity[] = [
-  {
-    id: 1,
-    title: "Visit an Indie Bookstore",
-    category: "Micro-escape",
-    description: "Discover staff-picked books under 300 pages at the nearest indie bookstore still open.",
-    image: "/the-bookworm-nook.png",
-    location: "Xintiandi Book Haven",
-    address: "123 Xintiandi Street",
-    coordinates: { lat: 31.2196, lng: 121.4764 },
-    distance: 0.8,
-    duration: "45 min",
-    why: "Reading short fiction can transport you to new worlds in just one sitting, perfect for mental refreshment.",
-    status: "planned",
-    selectedAt: new Date(2025, 3, 28, 14, 30),
-    tasks: [
-      { id: 1, text: "Visit the bookstore", completed: false },
-      { id: 2, text: "Ask for staff recommendations", completed: false },
-      { id: 3, text: "Find a book under 300 pages", completed: false },
-    ],
-  },
-  {
-    id: 3,
-    title: "Art-Deco Architecture Walk",
-    category: "City-lens",
-    description: "Walk the lane behind Xintiandi, count art-deco door handles with a 5-min history guide.",
-    image: "/shanghai-deco-facade.png",
-    location: "Xintiandi District",
-    address: "Xintiandi Walking Path",
-    coordinates: { lat: 31.2187, lng: 121.4785 },
-    distance: 1.2,
-    duration: "30 min",
-    why: "Noticing architectural details helps you see your familiar environment with fresh eyes.",
-    status: "in-progress",
-    selectedAt: new Date(2025, 3, 28, 16, 15),
-    tasks: [
-      { id: 1, text: "Start the walking tour", completed: true },
-      { id: 2, text: "Read the history guide", completed: true },
-      { id: 3, text: "Find and count 5 art-deco door handles", completed: false },
-      { id: 4, text: "Take photos of your favorites", completed: false },
-    ],
-  },
-  {
-    id: 2,
-    title: "No-Equipment HIIT Workout",
-    category: "Body reboot",
-    description: "A 20-minute high-intensity workout you can do with just your bodyweight.",
-    image: "/indoor-workout-oasis.png",
-    location: "Your living room",
-    address: "Home",
-    coordinates: null, // No specific coordinates since it's at home
-    distance: 0,
-    duration: "20 min",
-    why: "Physical activity releases endorphins that combat mental fatigue and screen-induced lethargy.",
-    status: "completed",
-    selectedAt: new Date(2025, 3, 28, 12, 0),
-    completedAt: new Date(2025, 3, 28, 12, 25),
-    tasks: [
-      { id: 1, text: "Warm up for 3 minutes", completed: true },
-      { id: 2, text: "Complete 4 rounds of exercises", completed: true },
-      { id: 3, text: "Cool down and stretch", completed: true },
-    ],
-  },
-  {
-    id: 6,
-    title: "Visit Shanghai Museum",
-    category: "City-lens",
-    description: "Explore the ancient Chinese art collection at Shanghai Museum.",
-    image: "/shanghai-museum-traditional-elements.png",
-    location: "Shanghai Museum",
-    address: "201 Renmin Avenue",
-    coordinates: { lat: 31.2277, lng: 121.4757 },
-    distance: 1.5,
-    duration: "90 min",
-    why: "Connecting with cultural heritage provides perspective and a break from digital stimulation.",
-    status: "planned",
-    selectedAt: new Date(2025, 3, 28, 17, 30),
-    tasks: [
-      { id: 1, text: "Visit the bronze exhibition", completed: false },
-      { id: 2, text: "Explore the ceramics gallery", completed: false },
-      { id: 3, text: "Check out the calligraphy section", completed: false },
-    ],
-  },
-  // Add more mock activities as needed
-]
+"use server";
+import { Activity, ActivityStatus } from "@/types";
+import { createOpenAI } from "@ai-sdk/openai";
+import { generateObject } from "ai";
+import { z } from "zod";
+import {
+  db_addActivity,
+  db_getLikedActivities,
+  db_getActivityById,
+  db_markActivityAsSwiped,
+  db_updateActivityStatus,
+  db_getUnswipedActivities,
+} from "./db";
 
 export async function getActivities(status?: ActivityStatus) {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  
-  if (status) {
-    return mockActivities.filter(activity => activity.status === status)
-  }
-  return mockActivities
+  return await db_getLikedActivities(status);
 }
 
 export async function getActivityById(id: number) {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  
-  return mockActivities.find(activity => activity.id === id) || null
+  return await db_getActivityById(id);
 }
 
 export async function updateActivityStatus(id: number, status: ActivityStatus) {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  
-  const activity = mockActivities.find(a => a.id === id)
-  if (activity) {
-    activity.status = status
-    if (status === "completed") {
-      activity.completedAt = new Date()
-    }
-  }
-  return activity
+  return await db_updateActivityStatus(id, status);
 }
 
-export async function addLikedActivity(activity: Omit<Activity, 'id' | 'status' | 'selectedAt' | 'tasks'>) {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  
-  const newActivity: Activity = {
-    ...activity,
-    id: Math.max(...mockActivities.map(a => a.id)) + 1,
-    status: "planned",
-    selectedAt: new Date(),
-    tasks: []
+export async function swipeActivity(id: number, isLiked: boolean) {
+  return await db_markActivityAsSwiped(id, isLiked);
+}
+
+const openai = createOpenAI({
+  baseURL: "https://models.github.ai/inference",
+  apiKey: process.env.NEXT_PUBLIC_GITHUB_API!,
+});
+
+const model = openai("openai/gpt-4.1");
+
+export async function generateActivity(energyLevel: number, location?: string) {
+  try {
+    const prompt = `Generate 5 fun and engaging activity recommendations based on the following criteria:
+    - Energy Level: ${energyLevel}/100
+    - Location: ${location || "anywhere"}
+    `;
+
+    const { object } = await generateObject({
+      model,
+      schema: z.object({
+        activities: z.array(
+          z.object({
+            title: z.string(),
+            category: z.string(),
+            description: z.string(),
+            location: z.string(),
+            address: z.string(),
+            coordinates: z.object({
+              lat: z.number(),
+              lng: z.number(),
+            }),
+            distance: z.number(),
+            duration: z.string(),
+            why: z.string(),
+            tasks: z.array(z.string()),
+          })
+        ),
+      }),
+      prompt,
+    });
+
+    console.log(JSON.stringify(object, null, 2));
+
+    const activities = object?.activities ?? [];
+
+    // TODO: 生成图片
+
+    // add to db
+    const promises = activities.map((activity) => {
+      return db_addActivity(activity);
+    });
+
+    await Promise.all(promises);
+
+    return activities;
+  } catch (error) {
+    console.error("Error generating activity:", error);
+    throw error;
   }
-  
-  mockActivities.push(newActivity)
-  return newActivity
-} 
+}
+
+export async function getUnswipedActivities(
+  energyLevel: number,
+  location?: string
+) {
+  let activities = await db_getUnswipedActivities();
+  if (activities.length === 0) {
+    activities = await generateActivity(energyLevel, location);
+  }
+  return activities;
+}

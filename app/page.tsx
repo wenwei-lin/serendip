@@ -1,161 +1,235 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion"
-import { Clock, MapPin, ThumbsDown, ThumbsUp, Navigation, Settings } from "lucide-react"
-import Image from "next/image"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Slider } from "@/components/ui/slider"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import ActivityDetail from "@/components/activity-detail"
-import NavigationBar from "@/components/navigation-bar"
-import { useToast } from "@/hooks/use-toast"
-import { Activity, ActivityStatus } from "@/types"
-import { getActivities, addLikedActivity } from "@/lib/activities"
+import { useState, useEffect } from "react";
+import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useTransform,
+} from "framer-motion";
+import {
+  Clock,
+  MapPin,
+  ThumbsDown,
+  ThumbsUp,
+  Navigation,
+  Settings,
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import ActivityDetail from "@/components/activity-detail";
+import NavigationBar from "@/components/navigation-bar";
+import { useToast } from "@/hooks/use-toast";
+import { Activity, ActivityStatus } from "@/types";
+import {
+  getActivities,
+  generateActivity,
+  swipeActivity,
+  getUnswipedActivities,
+} from "@/lib/activities";
+
+interface LocationData {
+  address: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  city?: string;
+}
 
 export default function Home() {
-  const { toast } = useToast()
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [direction, setDirection] = useState(0)
-  const [energyLevel, setEnergyLevel] = useState(50)
-  const [showEnergyPrompt, setShowEnergyPrompt] = useState(true)
-  const [showDetail, setShowDetail] = useState(false)
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
-  const [distanceFilter, setDistanceFilter] = useState("all")
-  const [locationData, setLocationData] = useState(null)
-  const [hasLocationPermission, setHasLocationPermission] = useState(false)
-  const [activities, setActivities] = useState<Activity[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isCardLeaving, setIsCardLeaving] = useState(false)
-  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null)
+  const { toast } = useToast();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState(0);
+  const [energyLevel, setEnergyLevel] = useState(50);
+  const [showEnergyPrompt, setShowEnergyPrompt] = useState(true);
+  const [showDetail, setShowDetail] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
+    null
+  );
+  const [distanceFilter, setDistanceFilter] = useState("all");
+  const [locationData, setLocationData] = useState<LocationData | null>(null);
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCardLeaving, setIsCardLeaving] = useState(false);
+  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(
+    null
+  );
 
   // Motion values for swipe gesture
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
-  const rotate = useTransform(x, [-200, 0, 200], [-15, 0, 15])
-  const cardOpacity = useTransform(x, [-200, -150, 0, 150, 200], [0.5, 1, 1, 1, 0.5])
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const rotate = useTransform(x, [-200, 0, 200], [-15, 0, 15]);
+  const cardOpacity = useTransform(
+    x,
+    [-200, -150, 0, 150, 200],
+    [0.5, 1, 1, 1, 0.5]
+  );
 
   // Like/dislike indicator opacity based on swipe direction
-  const likeOpacity = useTransform(x, [0, 50, 100, 150], [0, 0.5, 0.8, 1])
-  const dislikeOpacity = useTransform(x, [-150, -100, -50, 0], [1, 0.8, 0.5, 0])
+  const likeOpacity = useTransform(x, [0, 50, 100, 150], [0, 0.5, 0.8, 1]);
+  const dislikeOpacity = useTransform(
+    x,
+    [-150, -100, -50, 0],
+    [1, 0.8, 0.5, 0]
+  );
 
   useEffect(() => {
     // Check if location data exists in localStorage
-    const storedLocationData = localStorage.getItem("sparkLocationData")
+    const storedLocationData = localStorage.getItem("sparkLocationData");
     if (storedLocationData) {
       try {
-        setLocationData(JSON.parse(storedLocationData))
-        setHasLocationPermission(true)
+        setLocationData(JSON.parse(storedLocationData));
+        setHasLocationPermission(true);
       } catch (error) {
-        console.error("Error parsing location data:", error)
+        console.error("Error parsing location data:", error);
       }
     }
-  }, [])
+  }, []);
 
   const handleShowPicks = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const data = await getActivities()
-      setActivities(data)
-      setShowEnergyPrompt(false)
+      // Generate 5 activities based on energy level
+      const generatedActivities = await getUnswipedActivities(
+        energyLevel,
+        locationData?.address
+      );
+
+      // Add generated activities to the list
+      const activitiesWithIds = generatedActivities.map((activity, index) => ({
+        ...activity,
+        id: index + 1,
+        status: "planned" as ActivityStatus,
+        selectedAt: new Date(),
+        tasks: [],
+      }));
+
+      setActivities(activitiesWithIds);
+      setShowEnergyPrompt(false);
     } catch (error) {
-      console.error("Error fetching activities:", error)
+      console.error("Error generating activities:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch activities. Please try again.",
-        variant: "destructive"
-      })
+        description: "Failed to generate activities. Please try again.",
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleSwipe = async (dir: number) => {
-    setDirection(dir)
-    setIsCardLeaving(true)
-    setSwipeDirection(dir > 0 ? "right" : "left")
+    setDirection(dir);
+    setIsCardLeaving(true);
+    setSwipeDirection(dir > 0 ? "right" : "left");
 
-    const currentActivity = filteredActivities[currentIndex]
+    const currentActivity = filteredActivities[currentIndex];
 
     if (dir > 0) {
       // Like
       try {
-        const newActivity = await addLikedActivity({
-          title: currentActivity.title,
-          category: currentActivity.category,
-          description: currentActivity.description,
-          image: currentActivity.image,
-          location: currentActivity.location,
-          address: currentActivity.address,
-          coordinates: currentActivity.coordinates,
-          distance: currentActivity.distance,
-          duration: currentActivity.duration,
-          why: currentActivity.why
-        })
+        const newActivity = await swipeActivity(currentActivity.id, true);
 
         toast({
           title: "Activity added!",
           description: `"${currentActivity.title}" has been added to your activities.`,
-        })
+        });
       } catch (error) {
-        console.error("Error adding activity:", error)
+        console.error("Error adding activity:", error);
         toast({
           title: "Error",
           description: "Failed to add activity. Please try again.",
-          variant: "destructive"
-        })
+          variant: "destructive",
+        });
+      }
+    } else {
+      try {
+        await swipeActivity(currentActivity.id, false);
+      } catch (error) {
+        console.error("Error adding activity:", error);
+        toast({
+          title: "Error",
+          description: "Failed to add activity. Please try again.",
+          variant: "destructive",
+        });
       }
     }
 
-    // Move to next card after a short delay
-    setTimeout(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % filteredActivities.length)
-      setDirection(0)
-      setIsCardLeaving(false)
-      setSwipeDirection(null)
+    // Check if we're at the end of the current list
+    const isLastActivity = currentIndex === filteredActivities.length - 1;
+
+    setTimeout(async () => {
+      if (isLastActivity) {
+        // Fetch new activities
+        try {
+          const newActivities = await getUnswipedActivities(
+            energyLevel,
+            locationData?.city
+          );
+          setActivities((prev) => [...prev, ...newActivities]);
+        } catch (error) {
+          console.error("Error fetching new activities:", error);
+          toast({
+            title: "Error",
+            description: "Failed to fetch new activities. Please try again.",
+            variant: "destructive",
+          });
+        }
+      }
+
+      setCurrentIndex(
+        (prevIndex) => (prevIndex + 1) % filteredActivities.length
+      );
+      setDirection(0);
+      setIsCardLeaving(false);
+      setSwipeDirection(null);
 
       // Reset position
-      x.set(0)
-      y.set(0)
-    }, 300)
-  }
+      x.set(0);
+      y.set(0);
+    }, 300);
+  };
 
   const handleCardClick = (activity: Activity) => {
-    setSelectedActivity(activity)
-    setShowDetail(true)
-  }
+    setSelectedActivity(activity);
+    setShowDetail(true);
+  };
 
   const handleCloseDetail = () => {
-    setShowDetail(false)
-    setSelectedActivity(null)
-  }
+    setShowDetail(false);
+    setSelectedActivity(null);
+  };
 
   const handleDragEnd = (event: any, info: { offset: { x: number } }) => {
-    const threshold = 100
+    const threshold = 100;
 
     if (Math.abs(info.offset.x) > threshold) {
       // Swipe was strong enough to trigger action
-      handleSwipe(info.offset.x > 0 ? 1 : -1)
+      handleSwipe(info.offset.x > 0 ? 1 : -1);
     } else {
       // Reset position if swipe wasn't strong enough
-      x.set(0)
-      y.set(0)
+      x.set(0);
+      y.set(0);
     }
-  }
+  };
 
   // Filter activities based on distance
   const filteredActivities = activities.filter((activity) => {
-    if (distanceFilter === "all") return true
-    if (distanceFilter === "nearby") return activity.distance <= 1
-    if (distanceFilter === "walking") return activity.distance <= 2
-    if (distanceFilter === "transit") return activity.distance <= 5
-    return true
-  })
+    if (distanceFilter === "all") return true;
+    if (distanceFilter === "nearby") return activity.distance <= 1;
+    if (distanceFilter === "walking") return activity.distance <= 2;
+    if (distanceFilter === "transit") return activity.distance <= 5;
+    return true;
+  });
 
-  const currentActivity = filteredActivities[currentIndex] || activities[0]
+  const currentActivity = filteredActivities[currentIndex] || activities[0];
 
   const variants = {
     enter: (direction: number) => ({
@@ -179,17 +253,19 @@ export default function Home() {
         duration: 0.3,
       },
     }),
-  }
+  };
 
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-rose-500 mb-4"></div>
-          <p className="text-slate-600">Finding activities that match your energy level...</p>
+          <p className="text-slate-600">
+            Finding activities that match your energy level...
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -207,16 +283,24 @@ export default function Home() {
               </Button>
             </Link>
           </div>
-          <p className="text-slate-600 mt-1">End the doom-scroll. Get a spark for tonight.</p>
+          <p className="text-slate-600 mt-1">
+            End the doom-scroll. Get a spark for tonight.
+          </p>
         </header>
 
         {!hasLocationPermission && !showEnergyPrompt && (
           <Alert className="mb-4 bg-amber-50 border-amber-200">
             <MapPin className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-800">Enable location-based recommendations</AlertTitle>
+            <AlertTitle className="text-amber-800">
+              Enable location-based recommendations
+            </AlertTitle>
             <AlertDescription className="text-amber-700">
-              Set your locations to get personalized activity suggestions near you.{" "}
-              <Link href="/location-setup" className="font-medium underline underline-offset-4">
+              Set your locations to get personalized activity suggestions near
+              you.{" "}
+              <Link
+                href="/location-setup"
+                className="font-medium underline underline-offset-4"
+              >
                 Set location
               </Link>
             </AlertDescription>
@@ -230,7 +314,9 @@ export default function Home() {
             exit={{ opacity: 0, y: -20 }}
             className="bg-white rounded-xl p-6 shadow-lg"
           >
-            <h2 className="text-lg font-medium mb-4">How's your energy right now?</h2>
+            <h2 className="text-lg font-medium mb-4">
+              How's your energy right now?
+            </h2>
             <div className="flex items-center gap-4 mb-6">
               <span className="text-slate-500">😴</span>
               <Slider
@@ -252,7 +338,11 @@ export default function Home() {
         ) : (
           <>
             <div className="flex items-center justify-between mb-4">
-              <Tabs value={distanceFilter} onValueChange={setDistanceFilter} className="w-auto">
+              <Tabs
+                value={distanceFilter}
+                onValueChange={setDistanceFilter}
+                className="w-auto"
+              >
                 <TabsList>
                   <TabsTrigger value="all">All</TabsTrigger>
                   <TabsTrigger value="nearby">≤1km</TabsTrigger>
@@ -316,13 +406,19 @@ export default function Home() {
                       {currentActivity.distance > 0 && (
                         <div className="absolute top-3 right-3 bg-white/90 px-3 py-1 rounded-full text-xs font-medium flex items-center">
                           <Navigation className="w-3 h-3 mr-1 text-indigo-600" />
-                          <span className="text-indigo-600">{currentActivity.distance} km</span>
+                          <span className="text-indigo-600">
+                            {currentActivity.distance} km
+                          </span>
                         </div>
                       )}
                     </div>
                     <div className="p-5">
-                      <h2 className="text-xl font-bold mb-2">{currentActivity.title}</h2>
-                      <p className="text-slate-600 text-sm mb-4">{currentActivity.description}</p>
+                      <h2 className="text-xl font-bold mb-2">
+                        {currentActivity.title}
+                      </h2>
+                      <p className="text-slate-600 text-sm mb-4">
+                        {currentActivity.description}
+                      </p>
                       <div className="flex items-center justify-between text-sm text-slate-500">
                         <div className="flex items-center">
                           <MapPin className="w-4 h-4 mr-1" />
@@ -381,10 +477,15 @@ export default function Home() {
         )}
 
         <AnimatePresence>
-          {showDetail && selectedActivity && <ActivityDetail activity={selectedActivity} onClose={handleCloseDetail} />}
+          {showDetail && selectedActivity && (
+            <ActivityDetail
+              activity={selectedActivity}
+              onClose={handleCloseDetail}
+            />
+          )}
         </AnimatePresence>
         <NavigationBar />
       </div>
     </main>
-  )
+  );
 }

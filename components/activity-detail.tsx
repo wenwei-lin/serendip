@@ -1,44 +1,62 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import { ArrowLeft, CheckCircle, Clock, MapPin, Navigation, ExternalLink } from "lucide-react"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import CategoryBadge from "@/components/category-badge"
-import Map from "@/components/map"
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import {
+  ArrowLeft,
+  CheckCircle,
+  Clock,
+  MapPin,
+  Navigation,
+  ExternalLink,
+} from "lucide-react";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import CategoryBadge from "@/components/category-badge";
+import Map from "@/components/map";
 
-export default function ActivityDetail({ activity, onClose, showTasks = false }) {
-  const [tasks, setTasks] = useState([])
+export default function ActivityDetail({
+  activity,
+  onClose,
+  showTasks = false,
+}) {
+  const [tasks, setTasks] = useState([]);
 
   useEffect(() => {
     if (activity && activity.tasks) {
-      setTasks(activity.tasks)
+      setTasks(activity.tasks);
     } else {
-      setTasks([])
+      setTasks([]);
     }
-  }, [activity])
+  }, [activity]);
 
-  if (!activity) return null
+  if (!activity) return null;
 
   const handleTaskToggle = (taskId) => {
-    setTasks(tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task)))
-  }
+    setTasks(
+      tasks.map((task) =>
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      )
+    );
+  };
 
-  const hasLocation = activity.coordinates && activity.coordinates.lat && activity.coordinates.lng
+  const hasLocation =
+    activity.coordinates &&
+    activity.coordinates.lat &&
+    activity.coordinates.lng;
 
   // Function to open directions in the user's map app
   const openDirections = () => {
-    if (!hasLocation) return
+    if (!hasLocation) return;
 
     // Create a URL that will open in the user's default map app
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${activity.coordinates.lat},${activity.coordinates.lng}&travelmode=walking`
-    window.open(url, "_blank")
-  }
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${activity.coordinates.lat},${activity.coordinates.lng}&travelmode=walking`;
+    window.open(url, "_blank");
+  };
 
   return (
     <motion.div
@@ -68,10 +86,18 @@ export default function ActivityDetail({ activity, onClose, showTasks = false })
               <span className="sr-only">Back</span>
             </Button>
             <div className="relative h-48">
-              <Image src={activity.image || "/placeholder.svg"} alt={activity.title} fill className="object-cover" />
+              <Image
+                src={activity.image || "/placeholder.svg"}
+                alt={activity.title}
+                fill
+                className="object-cover"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
                 <div className="p-4 text-white">
-                  <CategoryBadge category={activity.category} className="mb-2" />
+                  <CategoryBadge
+                    category={activity.category}
+                    className="mb-2"
+                  />
                   <h2 className="text-xl font-bold">{activity.title}</h2>
                 </div>
               </div>
@@ -94,13 +120,17 @@ export default function ActivityDetail({ activity, onClose, showTasks = false })
               <div className="flex items-center mb-4 text-indigo-600 text-sm">
                 <Navigation className="w-4 h-4 mr-2" />
                 <span>{activity.distance} km away</span>
-                {activity.address && <span className="ml-1 text-slate-500">• {activity.address}</span>}
+                {activity.address && (
+                  <span className="ml-1 text-slate-500">
+                    • {activity.address}
+                  </span>
+                )}
               </div>
             )}
 
             <p className="text-slate-600 mb-4">{activity.description}</p>
 
-            {hasLocation && (
+            {/* {hasLocation && (
               <div className="mb-4 rounded-lg overflow-hidden border h-32">
                 <Map center={activity.coordinates} zoom={15} markers={[activity.coordinates]} interactive={false} />
                 <div className="p-2 bg-slate-50 border-t flex justify-between items-center">
@@ -111,10 +141,12 @@ export default function ActivityDetail({ activity, onClose, showTasks = false })
                   </Button>
                 </div>
               </div>
-            )}
+            )} */}
 
             <div className="bg-indigo-50 rounded-lg p-3 mb-4">
-              <h3 className="font-medium text-indigo-800 text-sm mb-1">Why this might spark joy</h3>
+              <h3 className="font-medium text-indigo-800 text-sm mb-1">
+                Why this might spark joy
+              </h3>
               <p className="text-indigo-700 text-xs">{activity.why}</p>
             </div>
 
@@ -135,7 +167,11 @@ export default function ActivityDetail({ activity, onClose, showTasks = false })
                       />
                       <Label
                         htmlFor={`task-${task.id}`}
-                        className={`text-sm ${task.completed ? "line-through text-slate-400" : "text-slate-700"}`}
+                        className={`text-sm ${
+                          task.completed
+                            ? "line-through text-slate-400"
+                            : "text-slate-700"
+                        }`}
                       >
                         {task.text}
                       </Label>
@@ -190,5 +226,5 @@ export default function ActivityDetail({ activity, onClose, showTasks = false })
         </Card>
       </motion.div>
     </motion.div>
-  )
+  );
 }
