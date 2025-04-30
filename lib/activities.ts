@@ -73,13 +73,13 @@ export async function generateActivity(energyLevel: number, location?: string) {
     // TODO: 生成图片
 
     // add to db
-    const promises = activities.map((activity) => {
+    const activityPromises = activities.map((activity) => {
       return db_addActivity(activity);
     });
 
-    await Promise.all(promises);
+    const createdActivities = await Promise.all(activityPromises);
 
-    return activities;
+    return createdActivities;
   } catch (error) {
     console.error("Error generating activity:", error);
     throw error;

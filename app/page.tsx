@@ -105,7 +105,6 @@ export default function Home() {
       // Add generated activities to the list
       const activitiesWithIds = generatedActivities.map((activity, index) => ({
         ...activity,
-        id: index + 1,
         status: "planned" as ActivityStatus,
         selectedAt: new Date(),
         tasks: [],
@@ -131,6 +130,8 @@ export default function Home() {
     setSwipeDirection(dir > 0 ? "right" : "left");
 
     const currentActivity = filteredActivities[currentIndex];
+
+    console.log(currentActivity);
 
     if (dir > 0) {
       // Like
