@@ -13,101 +13,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import ActivityDetail from "@/components/activity-detail"
 import NavigationBar from "@/components/navigation-bar"
 import { useToast } from "@/hooks/use-toast"
-
-// Sample activity data with location information
-const activities = [
-  {
-    id: 1,
-    title: "Visit an Indie Bookstore",
-    category: "Micro-escape",
-    description: "Discover staff-picked books under 300 pages at the nearest indie bookstore still open.",
-    image: "/the-bookworm-nook.png",
-    location: "Xintiandi Book Haven",
-    address: "123 Xintiandi Street",
-    coordinates: { lat: 31.2196, lng: 121.4764 },
-    distance: 0.8,
-    duration: "45 min",
-    why: "Reading short fiction can transport you to new worlds in just one sitting, perfect for mental refreshment.",
-  },
-  {
-    id: 2,
-    title: "No-Equipment HIIT Workout",
-    category: "Body reboot",
-    description: "A 20-minute high-intensity workout you can do with just your bodyweight.",
-    image: "/indoor-workout-oasis.png",
-    location: "Your living room",
-    address: "Home",
-    coordinates: null, // No specific coordinates since it's at home
-    distance: 0,
-    duration: "20 min",
-    why: "Physical activity releases endorphins that combat mental fatigue and screen-induced lethargy.",
-  },
-  {
-    id: 3,
-    title: "Art-Deco Architecture Walk",
-    category: "City-lens",
-    description: "Walk the lane behind Xintiandi, count art-deco door handles with a 5-min history guide.",
-    image: "/shanghai-deco-facade.png",
-    location: "Xintiandi District",
-    address: "Xintiandi Walking Path",
-    coordinates: { lat: 31.2187, lng: 121.4785 },
-    distance: 1.2,
-    duration: "30 min",
-    why: "Noticing architectural details helps you see your familiar environment with fresh eyes.",
-  },
-  {
-    id: 4,
-    title: "Linocut Workshop",
-    category: "Craft burst",
-    description: "One-hour linocut workshop in Huangpu starting at 19:30 – 2 seats left.",
-    image: "/linocut-artist-studio.png",
-    location: "Huangpu Art Studio",
-    address: "456 Huangpu Road",
-    coordinates: { lat: 31.2323, lng: 121.4896 },
-    distance: 2.5,
-    duration: "60 min",
-    why: "Creating something with your hands engages different parts of your brain than screen time does.",
-  },
-  {
-    id: 5,
-    title: "Read 'Noise' Chapter 2",
-    category: "Learning bite",
-    description: "Read chapter 2 of 'Noise', then reflect on one key insight.",
-    image: "/open-book-coffee.png",
-    location: "Your favorite reading spot",
-    address: "Home or nearby cafe",
-    coordinates: null,
-    distance: 0,
-    duration: "25 min",
-    why: "Focused reading on a single topic helps reset your attention span after fragmented social media use.",
-  },
-  {
-    id: 6,
-    title: "Visit Shanghai Museum",
-    category: "City-lens",
-    description: "Explore the ancient Chinese art collection at Shanghai Museum.",
-    image: "/shanghai-museum-traditional-elements.png",
-    location: "Shanghai Museum",
-    address: "201 Renmin Avenue",
-    coordinates: { lat: 31.2277, lng: 121.4757 },
-    distance: 1.5,
-    duration: "90 min",
-    why: "Connecting with cultural heritage provides perspective and a break from digital stimulation.",
-  },
-  {
-    id: 7,
-    title: "Riverside Meditation",
-    category: "Body reboot",
-    description: "Guided 15-minute meditation session by the Huangpu River.",
-    image: "/urban-sunset-meditation.png",
-    location: "Huangpu Riverside",
-    address: "Huangpu River Promenade",
-    coordinates: { lat: 31.2323, lng: 121.49 },
-    distance: 1.7,
-    duration: "20 min",
-    why: "Mindfulness practice by water has been shown to reduce stress and improve mental clarity.",
-  },
-]
+import { Activity, ActivityStatus } from "@/types"
+import { getActivities, addLikedActivity } from "@/lib/activities"
 
 export default function Home() {
   const { toast } = useToast()
@@ -116,14 +23,14 @@ export default function Home() {
   const [energyLevel, setEnergyLevel] = useState(50)
   const [showEnergyPrompt, setShowEnergyPrompt] = useState(true)
   const [showDetail, setShowDetail] = useState(false)
-  const [selectedActivity, setSelectedActivity] = useState(null)
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [distanceFilter, setDistanceFilter] = useState("all")
   const [locationData, setLocationData] = useState(null)
   const [hasLocationPermission, setHasLocationPermission] = useState(false)
-  const [likedActivities, setLikedActivities] = useState([])
-  const [dislikedActivities, setDislikedActivities] = useState([])
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   const [isCardLeaving, setIsCardLeaving] = useState(false)
-  const [swipeDirection, setSwipeDirection] = useState(null)
+  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null)
 
   // Motion values for swipe gesture
   const x = useMotionValue(0)
@@ -146,60 +53,60 @@ export default function Home() {
         console.error("Error parsing location data:", error)
       }
     }
-
-    // Load liked/disliked activities from localStorage
-    const storedLikedActivities = localStorage.getItem("sparkLikedActivities")
-    const storedDislikedActivities = localStorage.getItem("sparkDislikedActivities")
-
-    if (storedLikedActivities) {
-      try {
-        setLikedActivities(JSON.parse(storedLikedActivities))
-      } catch (error) {
-        console.error("Error parsing liked activities:", error)
-      }
-    }
-
-    if (storedDislikedActivities) {
-      try {
-        setDislikedActivities(JSON.parse(storedDislikedActivities))
-      } catch (error) {
-        console.error("Error parsing disliked activities:", error)
-      }
-    }
-
-    // Simulate loading context data
-    const timer = setTimeout(() => {
-      setShowEnergyPrompt(false)
-    }, 3000)
-    return () => clearTimeout(timer)
   }, [])
 
-  const handleSwipe = (dir) => {
+  const handleShowPicks = async () => {
+    setIsLoading(true)
+    try {
+      const data = await getActivities()
+      setActivities(data)
+      setShowEnergyPrompt(false)
+    } catch (error) {
+      console.error("Error fetching activities:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch activities. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSwipe = async (dir: number) => {
     setDirection(dir)
     setIsCardLeaving(true)
     setSwipeDirection(dir > 0 ? "right" : "left")
 
     const currentActivity = filteredActivities[currentIndex]
 
-    // Handle like/dislike logic
     if (dir > 0) {
       // Like
-      if (!likedActivities.includes(currentActivity.id)) {
-        const newLikedActivities = [...likedActivities, currentActivity.id]
-        setLikedActivities(newLikedActivities)
-        localStorage.setItem("sparkLikedActivities", JSON.stringify(newLikedActivities))
+      try {
+        const newActivity = await addLikedActivity({
+          title: currentActivity.title,
+          category: currentActivity.category,
+          description: currentActivity.description,
+          image: currentActivity.image,
+          location: currentActivity.location,
+          address: currentActivity.address,
+          coordinates: currentActivity.coordinates,
+          distance: currentActivity.distance,
+          duration: currentActivity.duration,
+          why: currentActivity.why
+        })
 
         toast({
-          title: "Activity liked!",
-          description: `"${currentActivity.title}" has been added to your liked activities.`,
+          title: "Activity added!",
+          description: `"${currentActivity.title}" has been added to your activities.`,
         })
-      }
-    } else {
-      // Dislike
-      if (!dislikedActivities.includes(currentActivity.id)) {
-        const newDislikedActivities = [...dislikedActivities, currentActivity.id]
-        setDislikedActivities(newDislikedActivities)
-        localStorage.setItem("sparkDislikedActivities", JSON.stringify(newDislikedActivities))
+      } catch (error) {
+        console.error("Error adding activity:", error)
+        toast({
+          title: "Error",
+          description: "Failed to add activity. Please try again.",
+          variant: "destructive"
+        })
       }
     }
 
@@ -216,7 +123,7 @@ export default function Home() {
     }, 300)
   }
 
-  const handleCardClick = (activity) => {
+  const handleCardClick = (activity: Activity) => {
     setSelectedActivity(activity)
     setShowDetail(true)
   }
@@ -226,7 +133,7 @@ export default function Home() {
     setSelectedActivity(null)
   }
 
-  const handleDragEnd = (event, info) => {
+  const handleDragEnd = (event: any, info: { offset: { x: number } }) => {
     const threshold = 100
 
     if (Math.abs(info.offset.x) > threshold) {
@@ -251,7 +158,7 @@ export default function Home() {
   const currentActivity = filteredActivities[currentIndex] || activities[0]
 
   const variants = {
-    enter: (direction) => ({
+    enter: (direction: number) => ({
       x: direction > 0 ? 1000 : -1000,
       opacity: 0,
       scale: 0.8,
@@ -264,7 +171,7 @@ export default function Home() {
         duration: 0.3,
       },
     },
-    exit: (direction) => ({
+    exit: (direction: number) => ({
       x: direction < 0 ? 1000 : -1000,
       opacity: 0,
       scale: 0.8,
@@ -272,6 +179,17 @@ export default function Home() {
         duration: 0.3,
       },
     }),
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-rose-500 mb-4"></div>
+          <p className="text-slate-600">Finding activities that match your energy level...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -325,7 +243,7 @@ export default function Home() {
               <span className="text-slate-500">🔥</span>
             </div>
             <Button
-              onClick={() => setShowEnergyPrompt(false)}
+              onClick={handleShowPicks}
               className="w-full bg-gradient-to-r from-rose-500 to-indigo-500 hover:from-rose-600 hover:to-indigo-600"
             >
               Show me tonight's picks

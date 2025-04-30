@@ -25,128 +25,26 @@ import NavigationBar from "@/components/navigation-bar"
 import ActivityFeedback from "@/components/activity-feedback"
 import ActivityDetail from "@/components/activity-detail"
 import CategoryBadge from "@/components/category-badge"
-
-// Sample activity data with status and location information
-const activities = [
-  {
-    id: 1,
-    title: "Visit an Indie Bookstore",
-    category: "Micro-escape",
-    description: "Discover staff-picked books under 300 pages at the nearest indie bookstore still open.",
-    image: "/the-bookworm-nook.png",
-    location: "Xintiandi Book Haven",
-    address: "123 Xintiandi Street",
-    coordinates: { lat: 31.2196, lng: 121.4764 },
-    distance: 0.8,
-    duration: "45 min",
-    why: "Reading short fiction can transport you to new worlds in just one sitting, perfect for mental refreshment.",
-    status: "planned",
-    selectedAt: new Date(2025, 3, 28, 14, 30),
-    tasks: [
-      { id: 1, text: "Visit the bookstore", completed: false },
-      { id: 2, text: "Ask for staff recommendations", completed: false },
-      { id: 3, text: "Find a book under 300 pages", completed: false },
-    ],
-  },
-  {
-    id: 3,
-    title: "Art-Deco Architecture Walk",
-    category: "City-lens",
-    description: "Walk the lane behind Xintiandi, count art-deco door handles with a 5-min history guide.",
-    image: "/shanghai-deco-facade.png",
-    location: "Xintiandi District",
-    address: "Xintiandi Walking Path",
-    coordinates: { lat: 31.2187, lng: 121.4785 },
-    distance: 1.2,
-    duration: "30 min",
-    why: "Noticing architectural details helps you see your familiar environment with fresh eyes.",
-    status: "in-progress",
-    selectedAt: new Date(2025, 3, 28, 16, 15),
-    tasks: [
-      { id: 1, text: "Start the walking tour", completed: true },
-      { id: 2, text: "Read the history guide", completed: true },
-      { id: 3, text: "Find and count 5 art-deco door handles", completed: false },
-      { id: 4, text: "Take photos of your favorites", completed: false },
-    ],
-  },
-  {
-    id: 2,
-    title: "No-Equipment HIIT Workout",
-    category: "Body reboot",
-    description: "A 20-minute high-intensity workout you can do with just your bodyweight.",
-    image: "/indoor-workout-oasis.png",
-    location: "Your living room",
-    address: "Home",
-    coordinates: null, // No specific coordinates since it's at home
-    distance: 0,
-    duration: "20 min",
-    why: "Physical activity releases endorphins that combat mental fatigue and screen-induced lethargy.",
-    status: "completed",
-    selectedAt: new Date(2025, 3, 28, 12, 0),
-    completedAt: new Date(2025, 3, 28, 12, 25),
-    tasks: [
-      { id: 1, text: "Warm up for 3 minutes", completed: true },
-      { id: 2, text: "Complete 4 rounds of exercises", completed: true },
-      { id: 3, text: "Cool down and stretch", completed: true },
-    ],
-  },
-  {
-    id: 6,
-    title: "Visit Shanghai Museum",
-    category: "City-lens",
-    description: "Explore the ancient Chinese art collection at Shanghai Museum.",
-    image: "/shanghai-museum-traditional-elements.png",
-    location: "Shanghai Museum",
-    address: "201 Renmin Avenue",
-    coordinates: { lat: 31.2277, lng: 121.4757 },
-    distance: 1.5,
-    duration: "90 min",
-    why: "Connecting with cultural heritage provides perspective and a break from digital stimulation.",
-    status: "planned",
-    selectedAt: new Date(2025, 3, 28, 17, 30),
-    tasks: [
-      { id: 1, text: "Visit the bronze exhibition", completed: false },
-      { id: 2, text: "Explore the ceramics gallery", completed: false },
-      { id: 3, text: "Check out the calligraphy section", completed: false },
-    ],
-  },
-  {
-    id: 7,
-    title: "Riverside Meditation",
-    category: "Body reboot",
-    description: "Guided 15-minute meditation session by the Huangpu River.",
-    image: "/urban-sunset-meditation.png",
-    location: "Huangpu Riverside",
-    address: "Huangpu River Promenade",
-    coordinates: { lat: 31.2323, lng: 121.49 },
-    distance: 1.7,
-    duration: "20 min",
-    why: "Mindfulness practice by water has been shown to reduce stress and improve mental clarity.",
-    status: "planned",
-    selectedAt: new Date(2025, 3, 28, 18, 0),
-    tasks: [
-      { id: 1, text: "Find a quiet spot by the river", completed: false },
-      { id: 2, text: "Complete the guided meditation", completed: false },
-      { id: 3, text: "Reflect on the experience", completed: false },
-    ],
-  },
-]
+import { Activity, ActivityStatus } from "@/types"
+import { getActivities, updateActivityStatus } from "@/lib/activities"
 
 // Status badge styling
-const statusStyles = {
+const statusStyles: Record<ActivityStatus, string> = {
   planned: "bg-indigo-100 text-indigo-700 border-indigo-200",
   "in-progress": "bg-amber-100 text-amber-700 border-amber-200",
   completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
 }
 
 export default function Tonight() {
-  const [activeTab, setActiveTab] = useState("all")
+  const [activeTab, setActiveTab] = useState<ActivityStatus | "all">("all")
   const [distanceFilter, setDistanceFilter] = useState("all")
   const [showFeedback, setShowFeedback] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
-  const [selectedActivity, setSelectedActivity] = useState(null)
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [locationData, setLocationData] = useState(null)
   const [hasLocationData, setHasLocationData] = useState(false)
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     // Check if location data exists in localStorage
@@ -159,6 +57,20 @@ export default function Tonight() {
         console.error("Error parsing location data:", error)
       }
     }
+
+    // Fetch activities
+    const fetchActivities = async () => {
+      try {
+        const data = await getActivities()
+        setActivities(data)
+      } catch (error) {
+        console.error("Error fetching activities:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchActivities()
   }, [])
 
   // Filter activities based on status and distance
@@ -174,12 +86,12 @@ export default function Tonight() {
     return true
   })
 
-  const handleOpenDetail = (activity) => {
+  const handleOpenDetail = (activity: Activity) => {
     setSelectedActivity(activity)
     setShowDetail(true)
   }
 
-  const handleOpenFeedback = (e, activity) => {
+  const handleOpenFeedback = (e: React.MouseEvent, activity: Activity) => {
     e.stopPropagation()
     setSelectedActivity(activity)
     setShowFeedback(true)
@@ -192,6 +104,20 @@ export default function Tonight() {
 
   const handleCloseFeedback = () => {
     setShowFeedback(false)
+  }
+
+  const handleMarkAsCompleted = async (e: React.MouseEvent, activity: Activity) => {
+    e.stopPropagation()
+    try {
+      const updatedActivity = await updateActivityStatus(activity.id, "completed")
+      if (updatedActivity) {
+        setActivities(activities.map(a => 
+          a.id === activity.id ? updatedActivity : a
+        ))
+      }
+    } catch (error) {
+      console.error("Error updating activity status:", error)
+    }
   }
 
   // Empty state component
@@ -211,6 +137,14 @@ export default function Tonight() {
       </Link>
     </div>
   )
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-rose-500"></div>
+      </div>
+    )
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-gradient-to-br from-rose-50 to-indigo-50 pb-20">
@@ -244,7 +178,7 @@ export default function Tonight() {
         )}
 
         <div className="flex items-center justify-between mb-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ActivityStatus | "all")} className="w-auto">
             <TabsList className="grid grid-cols-4">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="planned">Planned</TabsTrigger>
@@ -295,7 +229,7 @@ export default function Tonight() {
                               <CategoryBadge category={activity.category} className="text-[10px] px-2 py-0.5" />
                               <Badge
                                 variant="outline"
-                                className={`text-[10px] px-2 py-0.5 ${statusStyles[activity.status]}`}
+                                className={`text-[10px] px-2 py-0.5 ${statusStyles[activity.status || "planned"]}`}
                               >
                                 {activity.status === "planned" && "Planned"}
                                 {activity.status === "in-progress" && "In Progress"}
@@ -318,7 +252,7 @@ export default function Tonight() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               {activity.status !== "completed" && (
-                                <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenuItem onClick={(e) => handleMarkAsCompleted(e, activity)}>
                                   Mark as completed
                                 </DropdownMenuItem>
                               )}
@@ -337,7 +271,7 @@ export default function Tonight() {
                             <Clock className="w-3 h-3 mr-1" />
                             {activity.duration}
                           </div>
-                          <div>Selected at {format(activity.selectedAt, "h:mm a")}</div>
+                          <div>Selected at {format(activity.selectedAt || new Date(), "h:mm a")}</div>
                         </div>
 
                         {activity.distance > 0 && (
@@ -352,14 +286,14 @@ export default function Tonight() {
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-slate-600">Progress</span>
                               <span className="text-indigo-600 font-medium">
-                                {activity.tasks.filter((t) => t.completed).length}/{activity.tasks.length}
+                                {activity.tasks?.filter((t) => t.completed).length}/{activity.tasks?.length}
                               </span>
                             </div>
                             <div className="w-full h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
                               <div
                                 className="h-full bg-gradient-to-r from-rose-500 to-indigo-500 rounded-full"
                                 style={{
-                                  width: `${(activity.tasks.filter((t) => t.completed).length / activity.tasks.length) * 100}%`,
+                                  width: `${((activity.tasks?.filter((t) => t.completed).length || 0) / (activity.tasks?.length || 1)) * 100}%`,
                                 }}
                               />
                             </div>
